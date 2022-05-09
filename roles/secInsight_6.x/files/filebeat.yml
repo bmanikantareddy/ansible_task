@@ -1,0 +1,31 @@
+###################### Filebeat OSQuery Configuration Example #########################
+# You can find the full configuration reference here:
+# https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-reference-yml.html
+#=========================== Filebeat inputs =============================
+#=========================== OSquery input =============================
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/osquery/osqueryd.results.log
+  json.keys_under_root: true
+  fields_under_root: true
+#================================ Processors =====================================
+processors:
+- add_fields:
+    target: ''
+    fields:
+      availabilityDomain 
+      compartmentId
+      instanceId
+      vm_shape 
+      host_ip
+      oci_region
+      faultDomain
+      hostname
+      vnic_id
+      subnet_cidr
+#-------------------------------- filebeat output -------------------------------
+#----------------------------- logstash output -------------------------------- 
+output.logstash:
+  hosts: ["logstashurl"]

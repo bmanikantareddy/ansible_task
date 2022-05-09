@@ -1,0 +1,56 @@
+# Filebeat installation and configuration.
+- debug:
+     msg: "OS_FAMILY: {{ ansible_os_family }}" 
+
+- name: Install & configure filebeat
+  become: yes
+  block:
+  - name: Install filebeat 
+    ansible.builtin.yum:
+      name: https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-7.17.0-x86_64.rpm
+      state: present
+      validate_certs: no
+
+  # retrieving meta data from the vm     
+  - name: Write VM metadata to var log vm info
+    shell: |
+      oci-metadata -j
+      if [[ $? -eq 0 ]]
+      then
+        oci-metadata -j >> /var/log/vmfo
+      else
+        curl -XGET http://169.254.169.254/opc/v1/instance/ >> /var/log/vminfo
+        curl -XGET http://169.254.169.254/opc/v1/vnics/ >> /var/log/vcninfo
+      fi  
+
+  - name: copy filebeat.yml conf file
+    copy:
+      src: filebeat.yml
+      dest: /etc/filebeat/filebeat.yml
+      mode: 0644
+
+  - name: copy metadata reterieval script
+    copy:
+      src: add_metadata.sh
+      dest: /tmp/add_metadata.sh
+      mode: 0777
+
+  - name: Execute the script add_metadata.sh
+    command: sh /tmp/add_metadata.sh
+    environment:
+        logstashurl: "{{logstashhost| default('127.0.0.1')}}:{{logstashport | default('5044')}}"   
+    notify: Restart filebeat
+
+  - name: Make sure osquery autostarts
+    service:
+      name: osqueryd
+      enabled: yes
+
+  - name: Restart osquery
+    service:
+      name: osqueryd
+      state: restarted
+  when:
+  - ansible_os_family == 'RedHat'  
+
+# we can add filebeat installation tasks for other SO ditributions here.
