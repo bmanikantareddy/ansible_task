@@ -3,23 +3,11 @@
 - name: Install & configure filebeat
   become: yes
   block:
-  - name: "Check if filebeat conf already exists"
-    stat:
-      path: "/etc/filebeat/filebeat.yml"
-    register: filebeat_conf_exists
-
   - name: Install filebeat 
     ansible.builtin.yum:
       name: "https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-{{filebeat_version}}-x86_64.rpm"
       state: present
       validate_certs: no
-  
-  - name: replace default filebeat.yml conf file
-    copy:
-      src: filebeat.yml
-      dest: /etc/filebeat/filebeat.yml
-      mode: 0644
-    when: filebeat_conf_exists.stat.exists  
 
     # load josn content from URL.
   - name: Download JSON content play
@@ -73,43 +61,49 @@
       - "vnic_id: {{vnic_id}}"
       - "logstashfqdn: {{logstashfqdn}}"  
 
-  - name: manage yaml files
-    yedit:
-      src: /etc/filebeat/filebeat.yml
-      key: "filebeat.inputs"
-      value:
-      - type: log
-        enabled: true
-        fields_under_root: true
-        json.keys_under_root: true
-        paths:
-        - /var/log/osquery/osqueryd.results.log
+  - name: configure osquery input to filebeat
+    blockinfile:
+      path: /etc/filebeat/filebeat.yml
+      insertafter: "filebeat.inputs:"
+      marker: "## {mark} OSquery input for filebeat logs" 
+      content: |
+        # osquery input
+        - type: log
+          enabled: true
+          paths:
+            - /var/log/osquery/osqueryd.results.log
+          json.keys_under_root: true
+          fields_under_root: true
 
-  - name: manage yaml files
-    yedit:
-      src: /etc/filebeat/filebeat.yml
-      key: "output.logstash"
-      value:
-        hosts: ["logstashfqdn"]
+  - name: configure filebeat output to logstash
+    blockinfile: 
+      path: /etc/filebeat/filebeat.yml
+      insertafter: EOF
+      marker: "# {mark} logstash output direction for filebeat" 
+      content: |
+        output.logstash:
+          hosts: ["{{logstashfqdn}}"]
 
-  - name: manage yaml files
-    yedit:
-      src: /etc/filebeat/filebeat.yml
-      key: "processors"
-      value:
-        - add_fields:
-            fields:
-              availabilityDomain: "{{availabilityDomain}}"
-              compartmentId: "{{compartmentId}}"
-              faultDomain: "{{faultDomain}}"
-              host_ip: "{{host_ip}}"
-              hostname: "{{hostname}}"
-              instanceId: "{{instanceId}}"
-              oci_region: "{{oci_region}}"
-              subnet_cidr: "{{subnet_cidr}}"
-              vm_shape: "{{subnet_cidr}}"
-              vnic_id: "{{vnic_id}}"
-            target: ''
+  - name: configure additional fileds in filebeat
+    blockinfile: 
+      path: /etc/filebeat/filebeat.yml
+      insertafter: "processors:"
+      marker: "# {mark} add_fileds vm details" 
+      content: |
+        # add_fields section 
+          - add_fields:
+              fields:
+                availabilityDomain: "{{availabilityDomain}}"
+                compartmentId: "{{compartmentId}}"
+                faultDomain: "{{faultDomain}}"
+                host_ip: "{{host_ip}}"
+                hostname: "{{hostname}}"
+                instanceId: "{{instanceId}}"
+                oci_region: "{{oci_region}}"
+                subnet_cidr: "{{subnet_cidr}}"
+                vm_shape: "{{subnet_cidr}}"
+                vnic_id: "{{vnic_id}}"
+              target: ''
 
   - name: Make sure filebeat autostarts
     service:
@@ -120,7 +114,7 @@
     service:
       name: filebeat
       state: restarted
-
+  # condition to run these tasks for RedHat linux distros
   when:
   - ansible_os_family == 'RedHat'  
 
