@@ -1,9 +1,15 @@
 ---
 # tasks file for secInsight_6.x
+- debug:
+     msg: "OS_FAMILY: {{ ansible_os_family }}" 
+     
+#- role: yamleditor
+- import_role:
+    name: yamleditor
 
 - include_tasks: osquery.yml
   when: ansible_distribution_major_version == "6"
-  
+
 - include_tasks: filebeat.yml
   when: ansible_distribution_major_version == "6"
  

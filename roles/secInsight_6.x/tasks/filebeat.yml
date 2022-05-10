@@ -1,55 +1,126 @@
 # Filebeat installation and configuration.
-- debug:
-     msg: "OS_FAMILY: {{ ansible_os_family }}" 
 
 - name: Install & configure filebeat
   become: yes
   block:
+  - name: "Check if filebeat conf already exists"
+    stat:
+      path: "/etc/filebeat/filebeat.yml"
+    register: filebeat_conf_exists
+
   - name: Install filebeat 
     ansible.builtin.yum:
-      name: https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-7.17.0-x86_64.rpm
+      name: "https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-{{filebeat_version}}-x86_64.rpm"
       state: present
       validate_certs: no
-
-  # retrieving meta data from the vm     
-  - name: Write VM metadata to var log vm info
-    shell: |
-      oci-metadata -j
-      if [[ $? -eq 0 ]]
-      then
-        oci-metadata -j >> /var/log/vmfo
-      else
-        curl -XGET http://169.254.169.254/opc/v1/instance/ >> /var/log/vminfo
-        curl -XGET http://169.254.169.254/opc/v1/vnics/ >> /var/log/vcninfo
-      fi  
-
-  - name: copy filebeat.yml conf file
+  
+  - name: replace default filebeat.yml conf file
     copy:
       src: filebeat.yml
       dest: /etc/filebeat/filebeat.yml
       mode: 0644
+    when: filebeat_conf_exists.stat.exists  
 
-  - name: copy metadata reterieval script
-    copy:
-      src: add_metadata.sh
-      dest: /tmp/add_metadata.sh
-      mode: 0777
+    # load josn content from URL.
+  - name: Download JSON content play
+    uri:
+      url: http://169.254.169.254/opc/v1/instance/
+      return_content: yes
+    register: result
 
-  - name: Execute the script add_metadata.sh
-    command: sh /tmp/add_metadata.sh
-    environment:
-        logstashurl: "{{logstashhost| default('127.0.0.1')}}:{{logstashport | default('5044')}}"   
-    notify: Restart filebeat
+  - name: save the Json data to vminfo as a Fact
+    set_fact:
+      vminfo: "{{ result.json }}"
 
-  - name: Make sure osquery autostarts
+    # load josn content from URL.
+  - name: Download JSON content play
+    uri:
+      url: http://169.254.169.254/opc/v1/vnics/
+      return_content: yes
+    register: result 
+
+  - name: save the Json data to vcninfo as a Fact
+    set_fact:
+      vcninfo: "{{ result.json }}"
+
+  - name: Retrieve the fileds from json data
+    set_fact:
+      availabilityDomain: "{{ vminfo | json_query('availabilityDomain') }}"
+      compartmentId: "{{ vminfo | json_query('compartmentId') }}"
+      faultDomain: "{{ vminfo | json_query('faultDomain') }}"
+      host_ip: "{{ vcninfo | json_query('[0].privateIp') }}"
+      hostname: "{{ vminfo | json_query('hostname') }}"
+      instanceId: "{{ vminfo | json_query('id') }}"
+      oci_region: "{{ vminfo | json_query('canonicalRegionName') }}"
+      subnet_cidr: "{{ vcninfo | json_query('[0].subnetCidrBlock') }}"
+      vm_shape: "{{ vminfo | json_query('shape') }}"
+      vnic_id: "{{ vcninfo | json_query('[0].vnicId') }}"
+      logstashfqdn: "{{logstashhost | default('127.0.0.1')}}:{{logstashport | default('5044')}}"
+
+    # printing reterived fileds to stdout.
+  - name: Print out Vminfo
+    debug:
+      msg: 
+      - "availabilityDomain: {{availabilityDomain}}"
+      - "compartmentId: {{compartmentId}}"
+      - "faultDomain: {{faultDomain}}"
+      - "host_ip: {{host_ip}}"
+      - "hostname: {{hostname}}"
+      - "instanceId: {{instanceId}}"
+      - "oci_region: {{oci_region}}"
+      - "subnet_cidr: {{subnet_cidr}}"
+      - "vm_shape: {{vm_shape}}"
+      - "vnic_id: {{vnic_id}}"
+      - "logstashfqdn: {{logstashfqdn}}"  
+
+  - name: manage yaml files
+    yedit:
+      src: /etc/filebeat/filebeat.yml
+      key: "filebeat.inputs"
+      value:
+      - type: log
+        enabled: true
+        fields_under_root: true
+        json.keys_under_root: true
+        paths:
+        - /var/log/osquery/osqueryd.results.log
+
+  - name: manage yaml files
+    yedit:
+      src: /etc/filebeat/filebeat.yml
+      key: "output.logstash"
+      value:
+        hosts: ["logstashfqdn"]
+
+  - name: manage yaml files
+    yedit:
+      src: /etc/filebeat/filebeat.yml
+      key: "processors"
+      value:
+        - add_fields:
+            fields:
+              availabilityDomain: "{{availabilityDomain}}"
+              compartmentId: "{{compartmentId}}"
+              faultDomain: "{{faultDomain}}"
+              host_ip: "{{host_ip}}"
+              hostname: "{{hostname}}"
+              instanceId: "{{instanceId}}"
+              oci_region: "{{oci_region}}"
+              subnet_cidr: "{{subnet_cidr}}"
+              vm_shape: "{{subnet_cidr}}"
+              vnic_id: "{{vnic_id}}"
+            target: ''
+
+  - name: Make sure filebeat autostarts
     service:
-      name: osqueryd
+      name: filebeat
       enabled: yes
 
-  - name: Restart osquery
+  - name: Restart filebeat
     service:
-      name: osqueryd
+      name: filebeat
       state: restarted
+
   when:
   - ansible_os_family == 'RedHat'  
 

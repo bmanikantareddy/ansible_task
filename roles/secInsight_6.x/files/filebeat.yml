@@ -15,17 +15,17 @@ processors:
 - add_fields:
     target: ''
     fields:
-      availabilityDomain 
-      compartmentId
-      instanceId
-      vm_shape 
-      host_ip
-      oci_region
-      faultDomain
-      hostname
-      vnic_id
-      subnet_cidr
+      availabilityDomain: ""
+      compartmentId: ""
+      instanceId: ""
+      vm_shape : ""
+      host_ip : ""
+      oci_region : ""
+      faultDomain : ""
+      hostname : ""
+      vnic_id : ""
+      subnet_cidr : ""
 #-------------------------------- filebeat output -------------------------------
 #----------------------------- logstash output -------------------------------- 
 output.logstash:
-  hosts: ["logstashurl"]
+  hosts: ["127.0.0.1:5044"]

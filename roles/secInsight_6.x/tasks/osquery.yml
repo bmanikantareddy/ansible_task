@@ -1,24 +1,14 @@
 # osquery Installation and Configuration for redhat distribution
-
-- debug:
-     msg: "OS_FAMILY: {{ ansible_os_family }}" 
-   
+ 
 - name: Install & configure Osquery
   become: yes
   block:
-  - name: Add Server repository
-    yum_repository:
-      name: 'osquery-s3-rpm'
-      description: 'name=osquery RPM repository - x86_64'
-      baseurl: 'https://s3.amazonaws.com/osquery-packages/rpm/$basearch/'
-      gpgkey: 'https://pkg.osquery.io/rpm/GPG'
-      gpgcheck: yes
-      repo_gpgcheck: no 
-      state: present    
   - name: Install Osquery 
     ansible.builtin.yum:
-      name: osquery-4.9.0
+      name: "https://osquery-packages.s3.us-east-1.amazonaws.com/rpm/osquery-{{osquery_version | default('4.9.0')}}-1.linux.x86_64.rpm"
       state: present
+      validate_certs: no
+
   - name: Copy osquery.conf file to /etc/osquery/osquery.conf
     ansible.builtin.copy:
       src: osquery.conf
@@ -26,7 +16,8 @@
       owner: root
       group: root
       mode: 0644
-    notify: Restart osquery             
+    notify: Restart osquery
+
   - name: Make sure osquery autostarts
     service:
       name: osqueryd

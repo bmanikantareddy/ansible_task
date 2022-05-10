@@ -1,0 +1,7 @@
+---
+#vars file for secInsight_6.x role
+
+logstashhost: "127.0.0.1"
+logstashport: "5044"
+osquery_version: "4.9.0"
+filebeat_version: "7.17.0"
