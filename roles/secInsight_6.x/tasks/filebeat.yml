@@ -75,6 +75,15 @@
           json.keys_under_root: true
           fields_under_root: true
 
+  - name: configure filebeat output to disabling others
+    blockinfile: 
+      path: /etc/filebeat/filebeat.yml
+      insertafter: '^output.*'
+      marker: "# {mark} disable other outputs" 
+      content: |
+        # disabling other output conf
+          enable: false
+
   - name: configure filebeat output to logstash
     blockinfile: 
       path: /etc/filebeat/filebeat.yml
@@ -82,6 +91,7 @@
       marker: "# {mark} logstash output direction for filebeat" 
       content: |
         output.logstash:
+          enable: true
           hosts: ["{{logstashfqdn}}"]
 
   - name: configure additional fileds in filebeat
