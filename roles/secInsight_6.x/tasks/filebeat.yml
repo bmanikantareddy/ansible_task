@@ -75,14 +75,18 @@
           json.keys_under_root: true
           fields_under_root: true
 
-  - name: configure filebeat output to disabling others
-    blockinfile: 
-      path: /etc/filebeat/filebeat.yml
-      insertafter: '^output.*'
-      marker: "# {mark} disable other outputs" 
-      content: |
-        # disabling other output conf
-          enable: false
+  - name: install yq
+    become: yes
+    get_url:
+      url: https://github.com/mikefarah/yq/releases/download/v4.25.1/yq_linux_amd64
+      dest: /usr/bin/yq
+      mode: 0755
+      validate_certs: no
+
+# filebeat supports only one output at a time.
+  - name: delete the existing outputs in filebeat conf
+    shell: yq eval 'del(."output.elasticsearch", ."output.logstash")' /etc/filebeat/filebeat.yml 
+    register: result    
 
   - name: configure filebeat output to logstash
     blockinfile: 
@@ -113,7 +117,7 @@
                 subnet_cidr: "{{subnet_cidr}}"
                 vm_shape: "{{subnet_cidr}}"
                 vnic_id: "{{vnic_id}}"
-              target: ''
+              target: ''        
 
   - name: Make sure filebeat autostarts
     service:
@@ -124,6 +128,11 @@
     service:
       name: filebeat
       state: restarted
+
+  - name: unintall yq
+    file:
+      path: /usr/bin/yq
+      state: absent     
   # condition to run these tasks for RedHat linux distros
   when:
   - ansible_os_family == 'RedHat'  
