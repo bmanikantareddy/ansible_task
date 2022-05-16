@@ -72,6 +72,17 @@
           enabled: true
           paths:
             - /var/log/osquery/osqueryd.results.log
+          fields:
+            availabilityDomain: "{{availabilityDomain}}"
+            compartmentId: "{{compartmentId}}"
+            faultDomain: "{{faultDomain}}"
+            host_ip: "{{host_ip}}"
+            hostname: "{{hostname}}"
+            instanceId: "{{instanceId}}"
+            oci_region: "{{oci_region}}"
+            subnet_cidr: "{{subnet_cidr}}"
+            vm_shape: "{{subnet_cidr}}"
+            vnic_id: "{{vnic_id}}"  
           json.keys_under_root: true
           fields_under_root: true
 
@@ -85,8 +96,16 @@
 
 # filebeat supports only one output at a time.
   - name: delete the existing outputs in filebeat conf
-    shell: yq eval 'del(."output.elasticsearch", ."output.logstash")' /etc/filebeat/filebeat.yml 
-    register: result    
+    shell: yq eval -i 'del(."output.elasticsearch")' /etc/filebeat/filebeat.yml 
+    register: result 
+
+  - name: check for exiting logstash output configuration
+    lineinfile:
+      path:  /etc/filebeat/filebeat.yml 
+      regexp: "^output.logstash"
+      state: absent
+    check_mode: yes
+    register: out      
 
   - name: configure filebeat output to logstash
     blockinfile: 
@@ -97,27 +116,12 @@
         output.logstash:
           enable: true
           hosts: ["{{logstashfqdn}}"]
+    when: not out.found      
 
-  - name: configure additional fileds in filebeat
-    blockinfile: 
-      path: /etc/filebeat/filebeat.yml
-      insertafter: "processors:"
-      marker: "# {mark} add_fileds vm details" 
-      content: |
-        # add_fields section 
-          - add_fields:
-              fields:
-                availabilityDomain: "{{availabilityDomain}}"
-                compartmentId: "{{compartmentId}}"
-                faultDomain: "{{faultDomain}}"
-                host_ip: "{{host_ip}}"
-                hostname: "{{hostname}}"
-                instanceId: "{{instanceId}}"
-                oci_region: "{{oci_region}}"
-                subnet_cidr: "{{subnet_cidr}}"
-                vm_shape: "{{subnet_cidr}}"
-                vnic_id: "{{vnic_id}}"
-              target: ''        
+# this can update the existing config with the provide input logstash URL.
+#  - name: configure filebeat output to logstash
+#    shell: yq eval '."output.logstash".hosts[0]="{{logstashfqdn}}"' /etc/filebeat/filebeat.yml 
+#    when: out.found      
 
   - name: Make sure filebeat autostarts
     service:
