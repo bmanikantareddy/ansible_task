@@ -72,6 +72,17 @@
           enabled: true
           paths:
             - /var/log/osquery/osqueryd.results.log
+          fileds:
+                availabilityDomain: "{{availabilityDomain}}"
+                compartmentId: "{{compartmentId}}"
+                faultDomain: "{{faultDomain}}"
+                host_ip: "{{host_ip}}"
+                hostname: "{{hostname}}"
+                instanceId: "{{instanceId}}"
+                oci_region: "{{oci_region}}"
+                subnet_cidr: "{{subnet_cidr}}"
+                vm_shape: "{{subnet_cidr}}"
+                vnic_id: "{{vnic_id}}"
           json.keys_under_root: true
           fields_under_root: true
 
