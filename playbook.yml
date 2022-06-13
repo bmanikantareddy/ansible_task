@@ -62,4 +62,4 @@
       daemon_reload: true
   - name: access the tomcat URL    
     debug:
-      msg: "http://{{ansible_hostname}}:8080"
+      msg: "http://{{ansible_host}}:8080"
