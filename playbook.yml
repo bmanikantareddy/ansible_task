@@ -60,3 +60,6 @@
       state: started
       enabled: true
       daemon_reload: true
+  - name: access the tomcat URL    
+    debug:
+      msg: "http://{{ansible_hostname}}:8080"
