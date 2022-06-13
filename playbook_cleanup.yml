@@ -1,0 +1,45 @@
+---
+- name: Install Apache Tomcat10 using ansible
+  hosts: all
+  remote_user: ubuntu
+  become: true
+  tasks:
+    - name: Update the System Packages
+      apt:
+        upgrade: yes
+        update_cache: yes
+ 
+    - name: Create a Tomcat User
+      user:
+        name: tomcat
+        state: absent
+ 
+    - name: Create a Tomcat Group
+      group:
+        name: tomcat
+        state: absent
+ 
+    - name: Install JAVA
+      apt:
+        name: default-jdk
+        state: absent
+ 
+    - name: Start and Enable Tomcat 10 on sever
+      systemd:
+        name: tomcat
+        state: stopped
+        enabled: no
+        daemon_reload: true
+
+    - name: Create a Tomcat Directory
+      file:
+        path: /opt/tomcat10
+        state: absent
+        recurse: yes
+ 
+    - name: Copy Tomcat service from local to remote
+      copy:
+        src: /etc/tomcat.service
+        dest: /etc/systemd/system/
+        mode: 0755
+ 
