@@ -1,5 +1,0 @@
----
-# defaults file for secInsight_6.x
-
-logstashhost: "127.0.0.1"
-logstashport: "5044"

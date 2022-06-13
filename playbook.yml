@@ -1,6 +1,0 @@
----
-- hosts: all
-  remote_user: root
-  roles:
-    - secInsight_6.x
-  #when: (ansible_os_family == 'RedHat') and ( ansible_distribution_major_version == '6')
