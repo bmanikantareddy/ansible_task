@@ -1,60 +1,62 @@
 ---
-- name: Install Apache Tomcat10 using ansible
-  hosts: all
+- hosts: all
+  become: yes
+  become_method: sudo
   remote_user: ubuntu
-  become: true
   tasks:
-    - name: Update the System Packages
-      apt:
-        upgrade: yes
-        update_cache: yes
- 
-    - name: Create a Tomcat User
-      user:
-        name: tomcat
- 
-    - name: Create a Tomcat Group
-      group:
-        name: tomcat
- 
-    - name: Install JAVA
-      apt:
-        name: default-jdk
-        state: present
- 
- 
-    - name: Create a Tomcat Directory
-      file:
-        path: /opt/tomcat10
-        owner: tomcat
-        group: tomcat
-        mode: 755
-        recurse: yes
- 
-    - name: download & unarchive tomcat10 
-      unarchive:
-        src: https://mirrors.estointernet.in/apache/tomcat/tomcat-10/v10.0.4/bin/apache-tomcat- 10.0.4.tar.gz
-        dest: /opt/tomcat10
-        remote_src: yes
-        extra_opts: [--strip-components=1]
- 
-    - name: Change ownership of tomcat directory
-      file:
-        path: /opt/tomcat10
-        owner: tomcat
-        group: tomcat
-        mode: "u+rwx,g+rx,o=rx"
-        recurse: yes
-        state: directory
- 
-    - name: Copy Tomcat service from local to remote
-      copy:
-        src: /etc/tomcat.service
-        dest: /etc/systemd/system/
-        mode: 0755
- 
-    - name: Start and Enable Tomcat 10 on sever
-      systemd:
-        name: tomcat
-        state: started
-        daemon_reload: true
+  - name: Update and upgrade apt packages
+    apt:
+      upgrade: yes
+      update_cache: yes
+      cache_valid_time: 86400 #One day
+
+  - name: install JDK 11
+    apt:
+      name: openjdk-11-jdk
+      state: present
+
+  - name: add tomcat group
+    group:
+      name: tomcat
+
+  - name: add tomcat user
+    user:
+      name: tomcat
+      group: tomcat
+      home: /user/share/tomcat
+      createhome: no
+
+  - name: create /opt/tomcat directory
+    file:
+      path: /opt/tomcat
+      state: directory
+      mode: 0755
+
+  - name: download & unarchive
+    unarchive:
+      src: http://apache.cs.utah.edu/tomcat/tomcat-9/v9.0.16/bin/apache-tomcat-9.0.16.tar.gz
+      dest: /opt/tomcat
+      remote_src: yes
+      extra_opts: [--strip-components=1]
+
+  - name: Change ownership
+    file:
+      path: /opt/tomcat
+      owner: tomcat
+      group: tomcat
+      mode: "u+rwx,g+rx,o=rx"
+      recurse: yes
+      state: directory
+
+  - name: Copy Tomcat service from local to remote
+    copy:
+       src: tomcat.service
+       dest: /etc/systemd/system/
+       mode: 0755
+
+  - name: Start and enable Tomcat service
+    systemd:
+      name: tomcat
+      state: started
+      enabled: true
+      daemon_reload: true
